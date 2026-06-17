@@ -12,19 +12,9 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-  const login = (username, password) => {
-    if (username === 'admin' && password === 'admin123') {
-      const userData = { username, role: 'admin' };
-      localStorage.setItem('auth_user', JSON.stringify(userData));
-      setUser(userData);
-      return true;
-    } else if (username === 'manager' && password === 'manager123') {
-      const userData = { username, role: 'manager' };
-      localStorage.setItem('auth_user', JSON.stringify(userData));
-      setUser(userData);
-      return true;
-    }
-    return false;
+  const login = (userData) => {
+    localStorage.setItem('auth_user', JSON.stringify(userData));
+    setUser(userData);
   };
 
   const logout = () => {

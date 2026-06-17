@@ -10,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes will go here
+app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/warehouses', require('./routes/warehouseRoutes'));
 app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/inventory', require('./routes/inventoryRoutes'));

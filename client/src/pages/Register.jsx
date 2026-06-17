@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Box, Card, CardContent, Typography, TextField, Button, Alert, ToggleButton, ToggleButtonGroup, Link } from '@mui/material';
-import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link as RouterLink } from 'react-router-dom';
 import { Shield, Package } from 'lucide-react';
 import api from '../api/axios';
 
-const Login = () => {
+const Register = () => {
   const [role, setRole] = useState('admin');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const [success, setSuccess] = useState('');
   const navigate = useNavigate();
 
   const handleRoleChange = (event, newRole) => {
@@ -19,16 +19,31 @@ const Login = () => {
     }
   };
 
-  const handleLogin = async (e) => {
+  const handleRegister = async (e) => {
     e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (username.length < 3) {
+      return setError('Username must be at least 3 characters long');
+    }
+    if (password.length < 6) {
+      return setError('Password must be at least 6 characters long');
+    }
+    if (password !== confirmPassword) {
+      return setError('Passwords do not match');
+    }
+
     try {
-      const res = await api.post('/auth/login', { username, password, role });
+      const res = await api.post('/auth/register', { username, password, role });
       if (res.data.success) {
-        login(res.data.data);
-        navigate('/');
+        setSuccess('Registration successful! Redirecting to login...');
+        setTimeout(() => {
+          navigate('/login');
+        }, 1500);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid username or password');
+      setError(err.response?.data?.message || 'Error registering account');
     }
   };
 
@@ -40,12 +55,13 @@ const Login = () => {
             Routing Engine
           </Typography>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
-            Sign in to your account
+            Create a new account
           </Typography>
           
           {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+          {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
-          <form onSubmit={handleLogin}>
+          <form onSubmit={handleRegister}>
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
               <ToggleButtonGroup
                 value={role}
@@ -106,6 +122,16 @@ const Login = () => {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
+            <TextField
+              fullWidth
+              label="Confirm Password"
+              type="password"
+              variant="outlined"
+              margin="normal"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
             <Button 
               type="submit" 
               fullWidth 
@@ -113,13 +139,14 @@ const Login = () => {
               color="primary" 
               size="large" 
               sx={{ mt: 3, mb: 2 }}
+              disabled={!!success}
             >
-              Sign In
+              Register
             </Button>
 
             <Box textAlign="center">
-              <Link component={RouterLink} to="/register" variant="body2" color="text.secondary">
-                Don't have an account? Register
+              <Link component={RouterLink} to="/login" variant="body2" color="text.secondary">
+                Already have an account? Login
               </Link>
             </Box>
           </form>
@@ -129,4 +156,4 @@ const Login = () => {
   );
 };
 
-export default Login;
+export default Register;

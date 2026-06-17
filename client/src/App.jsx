@@ -8,6 +8,7 @@ import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
+import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import WarehouseManagement from './pages/WarehouseManagement';
 import InventoryManagement from './pages/InventoryManagement';
@@ -23,6 +24,7 @@ function App() {
         <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
             
             <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
               <Route index element={<ProtectedRoute allowedRoles={['admin']}><Dashboard /></ProtectedRoute>} />

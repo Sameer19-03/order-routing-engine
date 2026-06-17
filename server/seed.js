@@ -5,6 +5,7 @@ const Product = require('./models/Product');
 const Inventory = require('./models/Inventory');
 const Order = require('./models/Order');
 const RoutingHistory = require('./models/RoutingHistory');
+const User = require('./models/User');
 
 mongoose.connect(process.env.MONGODB_URI, {
   serverSelectionTimeoutMS: 30000,
@@ -23,6 +24,13 @@ const seedData = async () => {
     await Inventory.deleteMany({});
     await Order.deleteMany({});
     await RoutingHistory.deleteMany({});
+    await User.deleteMany({});
+
+    // Users
+    const adminUser = new User({ username: 'admin', password: 'admin123', role: 'admin' });
+    const managerUser = new User({ username: 'manager', password: 'manager123', role: 'manager' });
+    await adminUser.save();
+    await managerUser.save();
 
     // Warehouses in Indian Cities
     const warehousesData = [
