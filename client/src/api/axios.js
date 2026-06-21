@@ -26,6 +26,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+      console.log(`[Auth] Intercepted ${error.response.status} from API. Forcing logout.`);
       // Clear local storage and redirect
       localStorage.removeItem('auth_user');
       window.location.href = '/login';

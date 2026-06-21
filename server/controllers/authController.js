@@ -32,6 +32,7 @@ exports.register = async (req, res) => {
   }
 };
 
+
 exports.login = async (req, res) => {
   try {
     const { username, password, role } = req.body;

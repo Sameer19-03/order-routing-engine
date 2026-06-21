@@ -13,6 +13,7 @@ const OrderManagement = () => {
   const [formData, setFormData] = useState({
     customerName: '', customerLatitude: '', customerLongitude: '', productId: '', quantity: ''
   });
+  const [loadingRandom, setLoadingRandom] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -31,6 +32,12 @@ const OrderManagement = () => {
   useEffect(() => {
     fetchOrders();
     fetchProducts();
+
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const handlePlaceOrder = async (e) => {
@@ -58,6 +65,20 @@ const OrderManagement = () => {
       }
     } catch (err) {
       alert(err.response?.data?.message || 'Error placing order');
+    }
+  };
+
+  const handleGenerateRandomOrder = async () => {
+    setLoadingRandom(true);
+    try {
+      const res = await api.post('/orders/generate-random');
+      if (res.data.success) {
+        navigate('/routing-decision', { state: res.data.data });
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error generating random order');
+    } finally {
+      setLoadingRandom(false);
     }
   };
 
@@ -111,7 +132,16 @@ const OrderManagement = () => {
                   value={formData.quantity} onChange={e => setFormData({...formData, quantity: e.target.value})} />
               </Grid>
             </Grid>
-            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+              <Button 
+                variant="outlined" 
+                color="primary" 
+                size="large" 
+                onClick={handleGenerateRandomOrder}
+                disabled={loadingRandom}
+              >
+                {loadingRandom ? 'Generating...' : '🎲 Generate Random Order'}
+              </Button>
               <Button type="submit" variant="contained" color="secondary" size="large">
                 Route Order
               </Button>
