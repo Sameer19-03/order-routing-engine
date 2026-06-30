@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Box, Typography, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip } from '@mui/material';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
@@ -33,17 +33,50 @@ const blueIcon = createColoredIcon('blue');
 const RoutingDecision = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const data = location.state;
+  const { orderId } = useParams();
+  
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!data) {
-      navigate('/orders');
+    if (orderId) {
+      // Historical mode: fetch from backend
+      import('../api/axios').then(({ default: api }) => {
+        api.get(`/routing/routing-history/${orderId}`)
+          .then(res => {
+            if (res.data.success) {
+              const history = res.data.data;
+              setData({
+                order: history.orderId,
+                selectedWarehouse: history.warehouseId,
+                routingReason: history.routingReason,
+                allScores: history.allScores || [],
+                eliminatedWarehouses: history.eliminatedWarehouses || [],
+                routingScore: history.routingScore // fallback for older entries
+              });
+            }
+          })
+          .catch(err => {
+            console.error('Failed to fetch routing history', err);
+            navigate('/routing-history');
+          })
+          .finally(() => setLoading(false));
+      });
+    } else {
+      // Live mode: read from location.state
+      if (!location.state) {
+        navigate('/orders');
+      } else {
+        setData(location.state);
+        setLoading(false);
+      }
     }
-  }, [data, navigate]);
+  }, [orderId, location.state, navigate]);
 
+  if (loading) return <Box sx={{ p: 4, textAlign: 'center' }}><Typography>Loading routing decision...</Typography></Box>;
   if (!data) return null;
 
-  const { order, selectedWarehouse, routingReason, allScores, eliminatedWarehouses } = data;
+  const { order, selectedWarehouse, routingReason, allScores, eliminatedWarehouses, weights } = data;
   
   const customerPos = [order.customerLatitude, order.customerLongitude];
   const selectedPos = [selectedWarehouse.latitude, selectedWarehouse.longitude];
@@ -92,63 +125,117 @@ const RoutingDecision = () => {
         </Card>
       </Box>
 
-      <Typography variant="h6" gutterBottom>Routing Scores</Typography>
-      <TableContainer component={Paper} sx={{ backgroundColor: 'rgba(255,255,255,0.03)', mb: 4 }}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Warehouse</TableCell>
-              <TableCell>Distance (km)</TableCell>
-              <TableCell>Inv Score</TableCell>
-              <TableCell>Del Score</TableCell>
-              <TableCell>Cost Score</TableCell>
-              <TableCell>Final Score</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {allScores.sort((a,b) => b.finalScore - a.finalScore).map((s) => (
-              <TableRow 
-                key={s.warehouseName}
-                sx={{ 
-                  backgroundColor: s.warehouseName === selectedWarehouse.warehouseName ? 'rgba(16, 185, 129, 0.1)' : 'inherit',
-                  borderLeft: s.warehouseName === selectedWarehouse.warehouseName ? '4px solid #10b981' : 'none'
-                }}
-              >
-                <TableCell fontWeight={s.warehouseName === selectedWarehouse.warehouseName ? 'bold' : 'normal'}>
-                  {s.warehouseName}
-                  {s.warehouseName === selectedWarehouse.warehouseName && <Chip label="WINNER" size="small" color="success" sx={{ ml: 1 }} />}
-                </TableCell>
-                <TableCell>{s.distance_km.toFixed(2)}</TableCell>
-                <TableCell>{s.invScore.toFixed(4)}</TableCell>
-                <TableCell>{s.delScore.toFixed(4)}</TableCell>
-                <TableCell>{s.costScore.toFixed(4)}</TableCell>
-                <TableCell fontWeight="bold">{s.finalScore.toFixed(4)}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-
-      {eliminatedWarehouses && eliminatedWarehouses.length > 0 && (
+      {allScores && allScores.length > 0 ? (
         <>
-          <Typography variant="h6" color="error" gutterBottom>Eliminated Warehouses</Typography>
-          <TableContainer component={Paper} sx={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+          <Typography variant="h6" gutterBottom>Routing Scores</Typography>
+          <TableContainer component={Paper} sx={{ backgroundColor: 'rgba(255,255,255,0.03)', mb: 4 }}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Warehouse Name</TableCell>
-                  <TableCell>Available Stock</TableCell>
-                  <TableCell>Reason</TableCell>
+                  <TableCell>Warehouse</TableCell>
+                  <TableCell>Distance (km)</TableCell>
+                  <TableCell>Dist Score ({weights?.distanceWeight || 35}%)</TableCell>
+                  <TableCell>Inv Score ({weights?.inventoryWeight || 35}%)</TableCell>
+                  <TableCell>Del Score ({weights?.deliveryWeight || 20}%)</TableCell>
+                  <TableCell>Cost Score ({weights?.costWeight || 10}%)</TableCell>
+                  <TableCell>Final Score</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {eliminatedWarehouses.map((ew, idx) => (
-                  <TableRow key={idx}>
-                    <TableCell>{ew.warehouseName}</TableCell>
-                    <TableCell>{ew.availableQuantity}</TableCell>
-                    <TableCell><Chip label={ew.reason} color="error" size="small" /></TableCell>
+                {allScores.sort((a,b) => b.finalScore - a.finalScore).map((s) => (
+                  <TableRow 
+                    key={s.warehouseName}
+                    sx={{ 
+                      backgroundColor: s.warehouseName === selectedWarehouse.warehouseName ? 'rgba(16, 185, 129, 0.1)' : 'inherit',
+                      borderLeft: s.warehouseName === selectedWarehouse.warehouseName ? '4px solid #10b981' : 'none'
+                    }}
+                  >
+                    <TableCell fontWeight={s.warehouseName === selectedWarehouse.warehouseName ? 'bold' : 'normal'}>
+                      {s.warehouseName}
+                      {s.warehouseName === selectedWarehouse.warehouseName && <Chip label="WINNER" size="small" color="success" sx={{ ml: 1 }} />}
+                    </TableCell>
+                    <TableCell>{s.distance_km.toFixed(2)}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{s.distScore.toFixed(4)}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        × {weights?.distanceWeight || 35}% = {s.distWeighted.toFixed(4)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{s.invScore.toFixed(4)}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        × {weights?.inventoryWeight || 35}% = {s.invWeighted.toFixed(4)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{s.delScore.toFixed(4)}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        × {weights?.deliveryWeight || 20}% = {s.delWeighted.toFixed(4)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{s.costScore.toFixed(4)}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        × {weights?.costWeight || 10}% = {s.costWeighted.toFixed(4)}
+                      </Typography>
+                    </TableCell>
+                    <TableCell fontWeight="bold">{s.finalScore.toFixed(4)}</TableCell>
                   </TableRow>
                 ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+
+          {eliminatedWarehouses && eliminatedWarehouses.length > 0 && (
+            <>
+              <Typography variant="h6" color="error" gutterBottom>Eliminated Warehouses</Typography>
+              <TableContainer component={Paper} sx={{ backgroundColor: 'rgba(255,255,255,0.03)' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Warehouse Name</TableCell>
+                      <TableCell>Available Stock</TableCell>
+                      <TableCell>Reason</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {eliminatedWarehouses.map((ew, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{ew.warehouseName}</TableCell>
+                        <TableCell>{ew.availableQuantity}</TableCell>
+                        <TableCell><Chip label={ew.reason} color="error" size="small" /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </>
+          )}
+        </>
+      ) : (
+        <>
+          <Typography variant="h6" gutterBottom>Routing Decision</Typography>
+          <Typography variant="body2" color="warning.main" sx={{ mb: 2 }}>
+            ⚠️ Full comparison not saved for this historical order.
+          </Typography>
+          <TableContainer component={Paper} sx={{ backgroundColor: 'rgba(255,255,255,0.03)', mb: 4 }}>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Warehouse</TableCell>
+                  <TableCell>Final Score</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow sx={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', borderLeft: '4px solid #10b981' }}>
+                  <TableCell fontWeight="bold">
+                    {selectedWarehouse?.warehouseName || 'Unknown'}
+                    <Chip label="WINNER" size="small" color="success" sx={{ ml: 1 }} />
+                  </TableCell>
+                  <TableCell fontWeight="bold">
+                    {data.routingScore ? data.routingScore.toFixed(4) : 'N/A'}
+                  </TableCell>
+                </TableRow>
               </TableBody>
             </Table>
           </TableContainer>

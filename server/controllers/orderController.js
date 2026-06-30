@@ -5,6 +5,7 @@ const RoutingHistory = require('../models/RoutingHistory');
 const routingEngine = require('../services/routingEngine');
 const aiExplanation = require('../services/aiExplanation');
 const { generateRandomOrder } = require('../services/orderGenerator');
+const orderService = require('../services/orderService');
 
 exports.createOrder = async (req, res) => {
   try {
@@ -47,73 +48,26 @@ exports.updateOrder = async (req, res) => {
 
 exports.generateRandomOrderRoute = async (req, res) => {
   try {
-    const { customerName, customerLatitude, customerLongitude, productId, quantity } = await generateRandomOrder();
+    const fakeCustomer = await generateRandomOrder();
+    const result = await orderService.processAndRouteOrder({
+      customerName: fakeCustomer.customerName,
+      customerLat: fakeCustomer.customerLatitude,
+      customerLng: fakeCustomer.customerLongitude,
+      productId: fakeCustomer.productId,
+      quantity: fakeCustomer.quantity
+    });
 
-    const inventories = await Inventory.find({ productId }).populate('warehouseId');
-    
-    const { selectedWarehouse, finalScore, allScores, eliminatedWarehouses, selectedInventory } = routingEngine.selectBestWarehouse(
-      inventories,
-      quantity,
-      customerLatitude,
-      customerLongitude
-    );
-
-    if (!selectedWarehouse) {
+    if (!result.success) {
       return res.status(400).json({ 
         success: false, 
         message: 'No eligible warehouses with sufficient stock found for random order',
-        data: { eliminatedWarehouses }
+        data: result.data
       });
     }
 
-    selectedInventory.availableQuantity -= quantity;
-    selectedInventory.reservedQuantity += quantity;
-    await selectedInventory.save();
-
-    const newOrder = new Order({
-      customerName,
-      customerLatitude,
-      customerLongitude,
-      productId,
-      quantity,
-      assignedWarehouseId: selectedWarehouse._id,
-      status: 'assigned'
-    });
-    await newOrder.save();
-
-    const product = await Product.findById(productId);
-    const selectedScoreData = allScores.find(s => s.warehouseName === selectedWarehouse.warehouseName);
-    const rejectedScores = allScores.filter(s => s.warehouseName !== selectedWarehouse.warehouseName);
-
-    const aiExplanationText = await aiExplanation.generateExplanation({
-      productName: product ? product.productName : 'Product',
-      selectedWarehouse: selectedWarehouse.warehouseName,
-      distance: selectedScoreData.distance_km,
-      inventory: selectedScoreData.inventory,
-      deliveryDays: selectedScoreData.delivery_days,
-      cost: selectedScoreData.cost,
-      finalScore,
-      rejectedWarehouses: rejectedScores
-    });
-
-    const routingHistory = new RoutingHistory({
-      orderId: newOrder._id,
-      warehouseId: selectedWarehouse._id,
-      routingScore: finalScore,
-      routingReason: aiExplanationText
-    });
-    await routingHistory.save();
-
     res.status(200).json({
       success: true,
-      data: {
-        order: newOrder,
-        selectedWarehouse,
-        routingScore: finalScore,
-        routingReason: aiExplanationText,
-        allScores,
-        eliminatedWarehouses
-      },
+      data: result.data,
       message: 'Random order generated and routed successfully'
     });
 

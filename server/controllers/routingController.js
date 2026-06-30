@@ -1,103 +1,66 @@
 const RoutingHistory = require('../models/RoutingHistory');
-const Order = require('../models/Order');
-const Inventory = require('../models/Inventory');
-const Warehouse = require('../models/Warehouse');
-const Product = require('../models/Product');
-const routingEngine = require('../services/routingEngine');
-const aiExplanation = require('../services/aiExplanation');
+const orderService = require('../services/orderService');
 
 exports.routeOrder = async (req, res) => {
   try {
-    const { customerLat, customerLng, productId, quantity, customerName } = req.body;
-
-    if (!customerLat || !customerLng || !productId || !quantity) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
-    }
-
-    // Step 1: Query inventory
-    const inventories = await Inventory.find({ productId }).populate('warehouseId');
+    const result = await orderService.processAndRouteOrder(req.body);
     
-    // Step 2 & 3: Score and select warehouse
-    const { selectedWarehouse, finalScore, allScores, eliminatedWarehouses, selectedInventory } = routingEngine.selectBestWarehouse(
-      inventories,
-      quantity,
-      customerLat,
-      customerLng
-    );
-
-    if (!selectedWarehouse) {
+    if (!result.success) {
       return res.status(400).json({ 
         success: false, 
-        message: 'No eligible warehouses with sufficient stock found',
-        data: { eliminatedWarehouses }
+        message: result.message,
+        data: result.data
       });
     }
 
-    // Step 4: Reserve inventory
-    selectedInventory.availableQuantity -= quantity;
-    selectedInventory.reservedQuantity += quantity;
-    await selectedInventory.save();
-
-    // Create Order (status is assigned by default in schema)
-    const newOrder = new Order({
-      customerName: customerName || 'Guest',
-      customerLatitude: customerLat,
-      customerLongitude: customerLng,
-      productId,
-      quantity,
-      assignedWarehouseId: selectedWarehouse._id,
-      status: 'assigned'
-    });
-    await newOrder.save();
-
-    // Step 5: Call AI Explanation
-    const product = await Product.findById(productId);
-    const selectedScoreData = allScores.find(s => s.warehouseName === selectedWarehouse.warehouseName);
-    const rejectedScores = allScores.filter(s => s.warehouseName !== selectedWarehouse.warehouseName);
-
-    const aiExplanationText = await aiExplanation.generateExplanation({
-      productName: product ? product.productName : 'Product',
-      selectedWarehouse: selectedWarehouse.warehouseName,
-      distance: selectedScoreData.distance_km,
-      inventory: selectedScoreData.inventory,
-      deliveryDays: selectedScoreData.delivery_days,
-      cost: selectedScoreData.cost,
-      finalScore,
-      rejectedWarehouses: rejectedScores
-    });
-
-    // Step 6: Save to Routing History
-    const routingHistory = new RoutingHistory({
-      orderId: newOrder._id,
-      warehouseId: selectedWarehouse._id,
-      routingScore: finalScore,
-      routingReason: aiExplanationText
-    });
-    await routingHistory.save();
-
     res.status(200).json({
       success: true,
-      data: {
-        order: newOrder,
-        selectedWarehouse,
-        routingScore: finalScore,
-        routingReason: aiExplanationText,
-        allScores,
-        eliminatedWarehouses
-      },
+      data: result.data,
       message: 'Order routed successfully'
     });
 
   } catch (error) {
     console.error('Routing error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    res.status(error.message === 'Missing required fields' ? 400 : 500).json({ success: false, message: error.message });
   }
 };
 
 exports.getRoutingHistory = async (req, res) => {
   try {
-    const history = await RoutingHistory.find().populate('orderId').populate('warehouseId');
+    const history = await RoutingHistory.find()
+      .populate({
+        path: 'orderId',
+        populate: {
+          path: 'productId',
+          model: 'Product'
+        }
+      })
+      .populate('warehouseId')
+      .sort({ createdAt: -1 });
+
     res.status(200).json({ success: true, data: history, message: 'Routing history fetched' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.getRoutingHistoryById = async (req, res) => {
+  try {
+    const history = await RoutingHistory.findOne({ orderId: req.params.orderId })
+      .populate({
+        path: 'orderId',
+        populate: {
+          path: 'productId',
+          model: 'Product'
+        }
+      })
+      .populate('warehouseId');
+      
+    if (!history) {
+      return res.status(404).json({ success: false, message: 'Routing history not found' });
+    }
+    
+    res.status(200).json({ success: true, data: history });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

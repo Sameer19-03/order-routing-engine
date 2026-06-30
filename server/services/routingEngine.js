@@ -1,3 +1,5 @@
+const RoutingConfig = require('../models/RoutingConfig');
+
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = deg2rad(lat2 - lat1);
@@ -15,12 +17,27 @@ function deg2rad(deg) {
   return deg * (Math.PI / 180);
 }
 
-exports.selectBestWarehouse = (inventories, quantity, customerLat, customerLng) => {
+exports.selectBestWarehouse = async (inventories, quantity, customerLat, customerLng) => {
   let bestScore = -1;
   let selectedWarehouse = null;
   let selectedInventory = null;
   const allScores = [];
   const eliminatedWarehouses = [];
+
+  let config = await RoutingConfig.findOne();
+  if (!config) {
+    config = {
+      distanceWeight: 35,
+      inventoryWeight: 35,
+      deliveryWeight: 20,
+      costWeight: 10
+    };
+  }
+
+  const wDist = config.distanceWeight / 100;
+  const wInv = config.inventoryWeight / 100;
+  const wDel = config.deliveryWeight / 100;
+  const wCost = config.costWeight / 100;
 
   const eligibleInventories = [];
 
@@ -60,7 +77,7 @@ exports.selectBestWarehouse = (inventories, quantity, customerLat, customerLng) 
     const costScore = 1 / (1 + (distance_km * 5));
     
     // Final Score
-    const finalScore = (0.35 * distScore) + (0.35 * invScore) + (0.20 * delScore) + (0.10 * costScore);
+    const finalScore = (wDist * distScore) + (wInv * invScore) + (wDel * delScore) + (wCost * costScore);
     
     allScores.push({
       warehouseName: warehouse.warehouseName,
@@ -71,6 +88,10 @@ exports.selectBestWarehouse = (inventories, quantity, customerLat, customerLng) 
       invScore,
       delScore,
       costScore,
+      distWeighted: wDist * distScore,
+      invWeighted: wInv * invScore,
+      delWeighted: wDel * delScore,
+      costWeighted: wCost * costScore,
       finalScore,
       inventory: inv.availableQuantity
     });
@@ -82,5 +103,17 @@ exports.selectBestWarehouse = (inventories, quantity, customerLat, customerLng) 
     }
   }
 
-  return { selectedWarehouse, finalScore: bestScore, allScores, eliminatedWarehouses, selectedInventory };
+  return { 
+    selectedWarehouse, 
+    finalScore: bestScore, 
+    allScores, 
+    eliminatedWarehouses, 
+    selectedInventory,
+    weights: {
+      distanceWeight: config.distanceWeight,
+      inventoryWeight: config.inventoryWeight,
+      deliveryWeight: config.deliveryWeight,
+      costWeight: config.costWeight
+    }
+  };
 };

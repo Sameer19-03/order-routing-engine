@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Drawer, List, ListItem, ListItemIcon, ListItemText, Typography, Button } from '@mui/material';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { LayoutDashboard, Warehouse, Package, ShoppingCart, Map, LogOut } from 'lucide-react';
+import { LayoutDashboard, Warehouse, Package, ShoppingCart, Map, LogOut, Settings, History } from 'lucide-react';
 
 const drawerWidth = 240;
 
@@ -15,7 +15,9 @@ const Layout = () => {
     { text: 'Warehouses', icon: <Warehouse />, path: '/warehouses', roles: ['admin'] },
     { text: 'Inventory', icon: <Package />, path: '/inventory', roles: ['admin', 'manager'] },
     { text: 'Orders', icon: <ShoppingCart />, path: '/orders', roles: ['admin', 'manager'] },
+    { text: 'Routing History', icon: <History />, path: '/routing-history', roles: ['admin', 'manager'] },
     { text: 'Map', icon: <Map />, path: '/map', roles: ['admin', 'manager'] },
+    { text: 'Routing Settings', icon: <Settings />, path: '/routing-settings', roles: ['admin'] },
   ];
 
   const visibleMenuItems = menuItems.filter(item => item.roles.includes(user?.role));

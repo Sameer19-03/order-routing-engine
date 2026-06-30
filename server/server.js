@@ -16,6 +16,7 @@ app.use('/api/products', require('./routes/productRoutes'));
 app.use('/api/inventory', require('./routes/inventoryRoutes'));
 app.use('/api/orders', require('./routes/orderRoutes'));
 app.use('/api/routing', require('./routes/routingRoutes'));
+app.use('/api/config', require('./routes/configRoutes'));
 
 const cron = require('node-cron');
 const { runAutoOrder } = require('./services/orderGenerator');
@@ -32,7 +33,7 @@ mongoose.connect(process.env.MONGODB_URI, {
       console.log(`Server running on port ${PORT}`);
       
       if (process.env.ENABLE_AUTO_ORDERS === 'true') {
-        cron.schedule('*/20 * * * * *', runAutoOrder);
+        cron.schedule('*/30 * * * * *', runAutoOrder);
         console.log('Auto-order cron job started (every 2 minutes)');
       }
     });

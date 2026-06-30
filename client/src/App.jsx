@@ -14,7 +14,9 @@ import WarehouseManagement from './pages/WarehouseManagement';
 import InventoryManagement from './pages/InventoryManagement';
 import OrderManagement from './pages/OrderManagement';
 import RoutingDecision from './pages/RoutingDecision';
+import RoutingHistory from './pages/RoutingHistory';
 import WarehouseMap from './pages/WarehouseMap';
+import RoutingSettings from './pages/RoutingSettings';
 
 function App() {
   return (
@@ -32,7 +34,10 @@ function App() {
               <Route path="inventory" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><InventoryManagement /></ProtectedRoute>} />
               <Route path="orders" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><OrderManagement /></ProtectedRoute>} />
               <Route path="routing-decision" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><RoutingDecision /></ProtectedRoute>} />
+              <Route path="routing-decision/:orderId" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><RoutingDecision /></ProtectedRoute>} />
+              <Route path="routing-history" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><RoutingHistory /></ProtectedRoute>} />
               <Route path="map" element={<ProtectedRoute allowedRoles={['admin', 'manager']}><WarehouseMap /></ProtectedRoute>} />
+              <Route path="routing-settings" element={<ProtectedRoute allowedRoles={['admin']}><RoutingSettings /></ProtectedRoute>} />
             </Route>
 
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -5,6 +5,8 @@ const routingHistorySchema = new mongoose.Schema({
   warehouseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Warehouse' },
   routingScore: { type: Number },
   routingReason: { type: String },
+  allScores: [{ type: mongoose.Schema.Types.Mixed }],
+  eliminatedWarehouses: [{ type: mongoose.Schema.Types.Mixed }],
   createdAt: { type: Date, default: Date.now }
 });
 

@@ -2,14 +2,15 @@ const Groq = require('groq-sdk');
 
 console.log('Groq key loaded:', process.env.GROQ_API_KEY?.slice(0, 10));
 
+const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
+
 exports.generateExplanation = async ({ productName, selectedWarehouse, distance, inventory, deliveryDays, cost, finalScore, rejectedWarehouses }) => {
   try {
-    if (!process.env.GROQ_API_KEY) {
+    if (!groq) {
       return "AI explanation skipped because GROQ_API_KEY is not set.";
     }
 
-    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
+    
     const promptText = `
 You are an expert logistics AI for an Order Routing Engine. We just routed an order for "${productName}".
 The selected warehouse is ${selectedWarehouse}.
