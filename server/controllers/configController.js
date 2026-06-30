@@ -2,25 +2,21 @@ const RoutingConfig = require('../models/RoutingConfig');
 
 exports.getConfig = async (req, res) => {
   try {
-    const config = await RoutingConfig.findOne();
-    if (config) {
-      return res.status(200).json({ success: true, data: config });
+    let config = await RoutingConfig.findOne();
+    
+    // If no document exists in the DB, instantiate a new one in memory.
+    // Mongoose will automatically apply the default values from the schema!
+    if (!config) {
+      config = new RoutingConfig(); 
     }
     
-    // Default config if none exists
-    const defaultConfig = {
-      distanceWeight: 35,
-      inventoryWeight: 35,
-      deliveryWeight: 20,
-      costWeight: 10
-    };
-    return res.status(200).json({ success: true, data: defaultConfig });
+    return res.status(200).json({ success: true, data: config });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-exports.updateConfig = async (req, res) => {
+exports.updateConfig = async (req, res) => {  
   try {
     const { distanceWeight, inventoryWeight, deliveryWeight, costWeight } = req.body;
     

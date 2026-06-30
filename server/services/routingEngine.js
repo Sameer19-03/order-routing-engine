@@ -26,12 +26,7 @@ exports.selectBestWarehouse = async (inventories, quantity, customerLat, custome
 
   let config = await RoutingConfig.findOne();
   if (!config) {
-    config = {
-      distanceWeight: 35,
-      inventoryWeight: 35,
-      deliveryWeight: 20,
-      costWeight: 10
-    };
+    config = new RoutingConfig();
   }
 
   const wDist = config.distanceWeight / 100;
